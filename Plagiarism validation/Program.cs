@@ -7,9 +7,9 @@ namespace app
     class Program
     {
         #region structures
-        public struct node
+        public class node
         {
-            public string name;
+            public int name;
             public float similarity;
         }
         #endregion ;
@@ -19,7 +19,7 @@ namespace app
         public static List<Tuple<node, node, int>> read_from_excel()
         {
             List<Tuple<node, node, int /*number of lines*/>> edge = new List<Tuple<node, node, int>>();
-            // Your Code 
+            // Your Code
             return edge;
         }
         #endregion;
@@ -41,7 +41,6 @@ namespace app
             // Your Code 
             return final_edges;
         }
-
         // Abanoub
         public static List<Tuple<node, node, int>> MST_Prim(List<Tuple<node, node, int>> edges)
         {
