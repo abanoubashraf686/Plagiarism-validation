@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 namespace app
 {
@@ -27,7 +28,36 @@ namespace app
                 return y.CompareTo(x);
             }
         }
-
+        class DSU
+        {
+            private int[] parent;
+            private int[] size;
+            public DSU(int sz)
+            {
+                parent = new int[sz];
+                size = new int[sz];
+                for (int i = 0; i < sz; i++)
+                {
+                    parent[i] = i;
+                    size[i] = 0;
+                }
+            }
+            public int Find(int x)
+            {
+                if (parent[x] != x)
+                    parent[x] = Find(parent[x]);
+                return parent[x];
+            }
+            public void Union(int x, int y)
+            {
+                x = Find(x);
+                y = Find(y);
+                if (x == y) return;
+                if (size[y] > size[x]) (x, y) = (y, x);
+                parent[y] = x;
+                size[x] += size[y];
+            }
+        }
         #endregion ;
 
         #region 1. Read from excel file
@@ -60,7 +90,15 @@ namespace app
         public static List<edge> MST_Kruskal(List<edge> edges)
         {
             List<edge> final_edges = new List<edge>();
-            // Your Code
+            var sortedEdges = edges.OrderByDescending(x => x.mx_similarity);
+            DSU dsu = new DSU(n + 1);
+            foreach (var edge in sortedEdges)
+            {
+                int node1 = edge.node1 , node2 = edge.node2;
+                if (dsu.Find(node1) == dsu.Find(node2)) continue;
+                dsu.Union(node1, node2);
+                final_edges.Add(edge);
+            }
             return final_edges;
         }
         // Abanoub
