@@ -7,16 +7,24 @@ namespace app
     class Program
     {
         #region structures
+        public static int n;
         public class node
         {
             public int name;
             public float similarity;
         }
+        List<node> []adj;
         #endregion ;
 
         #region 1. Read from excel file
         // Mariam
         public static List<Tuple<node, node, int>> read_from_excel()
+        {
+            List<Tuple<node, node, int /*number of lines*/>> edge = new List<Tuple<node, node, int>>();
+            // Your Code
+            return edge;
+        }
+        public static List<Tuple<node, node, int>> Build()
         {
             List<Tuple<node, node, int /*number of lines*/>> edge = new List<Tuple<node, node, int>>();
             // Your Code
@@ -39,6 +47,7 @@ namespace app
         {
             List<Tuple<node, node, int>> final_edges = new List<Tuple<node, node, int>>();
             // Your Code 
+
             return final_edges;
         }
         // Abanoub
