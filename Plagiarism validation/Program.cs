@@ -75,28 +75,51 @@ namespace app
         public static List<edge> read_from_excel_and_build_edges()
         {
             // Your code
+            string filePath = "path_to_your_excel_file.xlsx";
+            List<string> lines;
+            string tmp;
+
+            using (var package = new ExcelPackage(new FileInfo(filePath)))
+            {
+                var workbook = package.Workbook;
+                if (workbook != null)
+                {
+                    var worksheet = workbook.Worksheets.First(); 
+                    int rowCount = worksheet.Dimension.Rows;
+                    int colCount = worksheet.Dimension.Columns;
+
+                    for (int row = 2; row <= rowCount; row++)
+                    {
+                        tmp = worksheet.Cells[row, 1].Value.ToString();
+                        tmp += ' ';
+                        tmp += worksheet.Cells[row, 2].Value.ToString();
+                        tmp += ' ';
+                        tmp += worksheet.Cells[row, 3].Value.ToString();
+                        lines.Add(tmp);
+                    }
+                }
+            }
 
 
-            
-            
+
             // test code
             List<edge> edges = new List<edge>();
 
             // Data in the text format
-            string[] lines = {
-                "https://example.com/file1/(36%) https://example.com/file2/(62%) 98",
-                "https://example.com/file2/(34%) https://example.com/file3/(96%) 130",
-                "https://example.com/file3/(60%) https://example.com/file4/(76%) 136",
-                "https://example.com/file4/(94%) https://example.com/file5/(78%) 172",
-                "https://example.com/file5/(94%) https://example.com/file6/(69%) 163",
-                "https://example.com/file6/(78%) https://example.com/file1/(99%) 177",
-                "https://example.com/file7/(97%) https://example.com/file8/(85%) 182",
-                "https://example.com/file8/(91%) https://example.com/file9/(44%) 135",
-                "https://example.com/file9/(42%) https://example.com/file10/(22%) 64",
-                "https://example.com/file10/(86%) https://example.com/file11/(89%) 175",
-                "https://example.com/file11/(42%) https://example.com/file12/(42%) 84",
-                "https://example.com/file12/(80%) https://example.com/file7/(49%) 129"
-            };
+            //string[] lines = {
+            //    "https://example.com/file1/(36%) https://example.com/file2/(62%) 98",
+            //    "https://example.com/file2/(34%) https://example.com/file3/(96%) 130",
+            //    "https://example.com/file3/(60%) https://example.com/file4/(76%) 136",
+            //    "https://example.com/file4/(94%) https://example.com/file5/(78%) 172",
+            //    "https://example.com/file5/(94%) https://example.com/file6/(69%) 163",
+            //    "https://example.com/file6/(78%) https://example.com/file1/(99%) 177",
+            //    "https://example.com/file7/(97%) https://example.com/file8/(85%) 182",
+            //    "https://example.com/file8/(91%) https://example.com/file9/(44%) 135",
+            //    "https://example.com/file9/(42%) https://example.com/file10/(22%) 64",
+            //    "https://example.com/file10/(86%) https://example.com/file11/(89%) 175",
+            //    "https://example.com/file11/(42%) https://example.com/file12/(42%) 84",
+            //    "https://example.com/file12/(80%) https://example.com/file7/(49%) 129"
+            //};
 
             Dictionary<string, int> fileToNode = new Dictionary<string, int>();
             name = new List<string>();
