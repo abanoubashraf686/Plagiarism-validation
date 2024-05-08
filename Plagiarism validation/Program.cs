@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OfficeOpenXml;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -15,6 +16,7 @@ namespace app
         public static List<edge> edges;
         public static bool[] vis;
         public static List<string> name;
+        public static Dictionary<int, int> dc;
         public class edge
         {
             public int node1, node2;
@@ -75,8 +77,8 @@ namespace app
         public static List<edge> read_from_excel_and_build_edges()
         {
             // Your code
-            string filePath = "path_to_your_excel_file.xlsx";
-            List<string> lines;
+            string filePath = @"D:\College\Algo\Project\RELEASE\[3] Plagiarism Validation\Plagiarism Validation [ALGO24] Project\bin\Test Cases\Sample\1-Input.xlsx";
+            List<string> lines = new List<string>();
             string tmp;
 
             using (var package = new ExcelPackage(new FileInfo(filePath)))
@@ -84,22 +86,31 @@ namespace app
                 var workbook = package.Workbook;
                 if (workbook != null)
                 {
-                    var worksheet = workbook.Worksheets.First(); 
+                    var worksheet = workbook.Worksheets.First();
                     int rowCount = worksheet.Dimension.Rows;
                     int colCount = worksheet.Dimension.Columns;
 
                     for (int row = 2; row <= rowCount; row++)
                     {
-                        tmp = worksheet.Cells[row, 1].Value.ToString();
+                        string[] prt = worksheet.Cells[row, 1].Value.ToString().Split(' ');
+                        tmp = prt[0];
+                        if (prt.Length > 1)
+                            tmp += prt[1];
                         tmp += ' ';
-                        tmp += worksheet.Cells[row, 2].Value.ToString();
+                        prt = worksheet.Cells[row, 2].Value.ToString().Split(' ');
+                        tmp += prt[0];
+                        if (prt.Length > 1)
+                            tmp += prt[1];
                         tmp += ' ';
                         tmp += worksheet.Cells[row, 3].Value.ToString();
                         lines.Add(tmp);
                     }
                 }
             }
-
+            foreach (var i in lines)
+            {
+                Console.WriteLine(i);
+            }
 
 
             // test code
@@ -145,8 +156,8 @@ namespace app
                     name.Add(name1_);
                 }
 
-                float sim1 = float.Parse(name1.Substring(name1.Length - 4, 2));
-                float sim2 = float.Parse(name2.Substring(name2.Length - 4, 2));
+                float sim1 = float.Parse(name1.Substring(name1.IndexOf('(') + 1, name1.IndexOf('%') - name1.IndexOf('(') - 1));
+                float sim2 = float.Parse(name2.Substring(name2.IndexOf('(') + 1, name2.IndexOf('%') - name2.IndexOf('(') - 1));
 
                 edges.Add(new edge(fileToNode[name1_], fileToNode[name2_], sim1, sim2, number_of_lines));
             }
@@ -156,7 +167,7 @@ namespace app
         // Gadallah
         public static List<List<edge>> Build_Graph(List<edge> edges)
         {
-           
+
             List<List<edge>> adj = new List<List<edge>>();
             // Your Code 
             vis = new bool[n + 1];
@@ -165,7 +176,8 @@ namespace app
                 adj.Add(new List<edge>());
                 vis[i] = false;
             }
-            foreach(var edge in edges) {
+            foreach (var edge in edges)
+            {
 
                 adj[edge.node1].Add(edge);
                 adj[edge.node2].Add(edge);
@@ -191,7 +203,7 @@ namespace app
                     curNeighbor = neighbor.node2;
                     //curSum = neighbor.sim2;
                 }
-               
+
                 count += 2;
                 sum += neighbor.sim1 + neighbor.sim2;
 
@@ -227,7 +239,7 @@ namespace app
         public static List<edge> MST_Kruskal(List<edge> edges)
         {
             List<edge> final_edges = new List<edge>();
-           
+
             var sortedEdges = edges.OrderByDescending(x => x.mx_similarity);
             DSU dsu = new DSU(n + 1);
             foreach (var edge in sortedEdges)
@@ -300,15 +312,20 @@ namespace app
         public static void ouput_groups_statistics_into_excel(List<KeyValuePair<List<int>, float>> groups_avg)
         {
             // Your code
-
-            
+            // list<pair<list,float>>
+            groups_avg.Sort((x, y) => y.Value.CompareTo(x.Value));
+            int cur = 0;
+            dc = new Dictionary<int, int>();
             // Write this output in the excel file in StatFiles format
+            Console.WriteLine(groups_avg.Count);
             foreach (var group in groups_avg)
             {
                 foreach (var i in group.Key)
                 {
-                    Console.Write(name[i] + " ");
+                    dc.Add(i, cur);
+                    Console.Write(i + " ");
                 }
+                cur++;
                 Console.WriteLine(group.Value);
             }
         }
@@ -317,6 +334,7 @@ namespace app
         public static void output_edges_of_MST_into_excel(List<edge> final_edges)
         {
             // Your Code
+            final_edges.Sort((x, y) => dc[x.node1].CompareTo(dc[y.node1]));
 
             // Write this output in the excel file in mst_files format
             foreach (var edge in final_edges)
@@ -329,6 +347,7 @@ namespace app
         #endregion;
         static void Main(string[] args)
         {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             edges = read_from_excel_and_build_edges();
             adj = Build_Graph(edges);
 
