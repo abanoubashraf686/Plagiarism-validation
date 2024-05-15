@@ -1,9 +1,17 @@
 ﻿using OfficeOpenXml;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using OfficeOpenXml;
+
+using static app.Program;
+using static System.Net.Mime.MediaTypeNames;
+using System.Reflection.Emit;
 
 namespace app
 {
@@ -11,19 +19,20 @@ namespace app
     class Program
     {
         #region structures
-        public static int n;
-        public static List<List<edge>> adj;
-        public static List<edge> edges;
+        public static int n=0;
+        public const  int MAXN = 1000000;
+        public static List<List<Edge>> adj;
+        public static List<Edge> Edges;
         public static bool[] vis;
-        public static List<string> name;
-        public static Dictionary<int, int> dc;
-        public class edge
+        public static int []group_num;
+        public static string PATH = null;
+        public class Edge
         {
             public int node1, node2;
             public float sim1, sim2;
             public int number_of_lines;
             public float mx_similarity;
-            public edge(int node1, int node2, float sim1, float sim2, int number_of_lines = 5)
+            public Edge(int node1, int node2, float sim1, float sim2, int number_of_lines = 5)
             {
                 this.node1 = node1;
                 this.node2 = node2;
@@ -33,13 +42,17 @@ namespace app
                 this.number_of_lines = number_of_lines;
             }
         }
-        private class InverseComparer : IComparer<float>
+        public class EdgeComparer : IComparer<Edge>
         {
-            public int Compare(float x, float y)
+            public int Compare(Edge x, Edge y)
             {
-                return y.CompareTo(x);
+                int result = y.mx_similarity.CompareTo(x.mx_similarity);
+                if (result == 0)
+                    return y.number_of_lines.CompareTo(x.number_of_lines);
+                return result;
             }
         }
+
         class DSU
         {
             private int[] parent;
@@ -74,13 +87,18 @@ namespace app
 
         #region 1. Read from excel file
         // Mariam
-        public static List<edge> read_from_excel_and_build_edges()
+        public static List<Edge> read_from_excel_and_build_Edges(ref int n , ref string PATH ,string filePath)
         {
-            // Your code
-            string filePath = @"D:\College\Algo\Project\RELEASE\[3] Plagiarism Validation\Plagiarism Validation [ALGO24] Project\bin\Test Cases\Sample\1-Input.xlsx";
-            List<string> lines = new List<string>();
-            string tmp;
-
+            string path1, path2;
+            int lineMatch;
+            int id1, id2;
+            int sim1, sim2;
+            bool inB;
+            bool start = false;
+            int pathEnd = -1;
+            List<Edge> Edges = new List<Edge>();
+            // Set up EPPlus license context (EPPlus 5+)
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             using (var package = new ExcelPackage(new FileInfo(filePath)))
             {
                 var workbook = package.Workbook;
@@ -92,95 +110,113 @@ namespace app
 
                     for (int row = 2; row <= rowCount; row++)
                     {
-                        string[] prt = worksheet.Cells[row, 1].Value.ToString().Split(' ');
-                        tmp = prt[0];
-                        if (prt.Length > 1)
-                            tmp += prt[1];
-                        tmp += ' ';
-                        prt = worksheet.Cells[row, 2].Value.ToString().Split(' ');
-                        tmp += prt[0];
-                        if (prt.Length > 1)
-                            tmp += prt[1];
-                        tmp += ' ';
-                        tmp += worksheet.Cells[row, 3].Value.ToString();
-                        lines.Add(tmp);
+                        path1 = worksheet.Cells[row, 1].Value.ToString();
+                        path2 = worksheet.Cells[row, 2].Value.ToString();
+                        lineMatch = int.Parse(worksheet.Cells[row, 3].Value.ToString());
+                        id1 = 0;
+                        id2 = 0;
+                        inB = false;
+                        sim1 = 0;
+                        sim2 = 0;
+                        for (int j = 0; j < path1.Length; j++)
+                        {
+                            char c = path1[j];
+                            if (c == '(')
+                            {
+                                inB = true;
+                                continue;
+                            }
+                            if (c == '%') break;
+                            if (c >= '0' && c <= '9')
+                            {
+                                if (inB)
+                                {
+                                    if (!start)
+                                    {
+                                        sim1 = 0;
+                                        start = true;
+                                    }
+                                    sim1 = sim1 * 10 + (c - '0');
+                                }
+                                else
+                                {
+                                    if (!start)
+                                    {
+                                        id1 = 0;
+                                        start = true;
+                                        pathEnd = j - 1;
+                                    }
+                                    id1 = id1 * 10 + (c - '0');
+                                }
+                            }
+                            else start = false;
+                        }
+                        if (PATH == null)
+                        {
+                            if (pathEnd == -1)
+                                PATH = "";
+                            else
+                                PATH = path1.Substring(0, pathEnd + 1);
+
+                        }
+                        inB = false;
+                        foreach (var c in path2)
+                        {
+                            if (c == '(')
+                            {
+                                inB = true;
+                                continue;
+                            }
+                            if (c == '%') break;
+                            if (c >= '0' && c <= '9')
+                            {
+                                if (inB)
+                                {
+                                    if (!start)
+                                    {
+                                        sim2 = 0;
+                                        start = true;
+                                    }
+                                    sim2 = sim2 * 10 + (c - '0');
+                                }
+                                else
+                                {
+                                    if (!start)
+                                    {
+                                        id2 = 0;
+                                        start = true;
+                                    }
+                                    id2 = id2 * 10 + (c - '0');
+                                }
+                            }
+                            else start = false;
+                        }
+                        n = Math.Max(n, id1);
+                        n = Math.Max(n, id2);
+                        Edges.Add(new Edge(id1, id2, sim1, sim2, lineMatch));
                     }
                 }
             }
-            foreach (var i in lines)
-            {
-                Console.WriteLine(i);
-            }
-
-
-            // test code
-            List<edge> edges = new List<edge>();
-
-            // Data in the text format
-            //string[] lines = {
-            //    "https://example.com/file1/(36%) https://example.com/file2/(62%) 98",
-            //    "https://example.com/file2/(34%) https://example.com/file3/(96%) 130",
-            //    "https://example.com/file3/(60%) https://example.com/file4/(76%) 136",
-            //    "https://example.com/file4/(94%) https://example.com/file5/(78%) 172",
-            //    "https://example.com/file5/(94%) https://example.com/file6/(69%) 163",
-            //    "https://example.com/file6/(78%) https://example.com/file1/(99%) 177",
-            //    "https://example.com/file7/(97%) https://example.com/file8/(85%) 182",
-            //    "https://example.com/file8/(91%) https://example.com/file9/(44%) 135",
-            //    "https://example.com/file9/(42%) https://example.com/file10/(22%) 64",
-            //    "https://example.com/file10/(86%) https://example.com/file11/(89%) 175",
-            //    "https://example.com/file11/(42%) https://example.com/file12/(42%) 84",
-            //    "https://example.com/file12/(80%) https://example.com/file7/(49%) 129"
-            //};
-
-            Dictionary<string, int> fileToNode = new Dictionary<string, int>();
-            name = new List<string>();
-            name.Add("Alsalamo 3likom our respective readers");
-            int nextNode = 1;
-            foreach (string line in lines)
-            {
-                string[] parts = line.Split(' ');
-                string name1 = parts[0];
-                string name2 = parts[1];
-                int number_of_lines = int.Parse(parts[2]);
-
-                string name1_ = name1.Substring(0, name1.Length - 5);
-                string name2_ = name2.Substring(0, name2.Length - 5);
-                if (!fileToNode.ContainsKey(name1_))
-                {
-                    fileToNode[name1_] = nextNode++;
-                    name.Add(name1_);
-                }
-                if (!fileToNode.ContainsKey(name2_))
-                {
-                    fileToNode[name2_] = nextNode++;
-                    name.Add(name1_);
-                }
-
-                float sim1 = float.Parse(name1.Substring(name1.IndexOf('(') + 1, name1.IndexOf('%') - name1.IndexOf('(') - 1));
-                float sim2 = float.Parse(name2.Substring(name2.IndexOf('(') + 1, name2.IndexOf('%') - name2.IndexOf('(') - 1));
-
-                edges.Add(new edge(fileToNode[name1_], fileToNode[name2_], sim1, sim2, number_of_lines));
-            }
-            n = nextNode - 1;
-            return edges;
+            return Edges;
         }
-        // Gadallah
-        public static List<List<edge>> Build_Graph(List<edge> edges)
+        public static List<List<Edge>> Build_Graph(List<Edge> Edges)
         {
 
-            List<List<edge>> adj = new List<List<edge>>();
+            List<List<Edge>> adj = new List<List<Edge>>();
             // Your Code 
             vis = new bool[n + 1];
+            group_num = new int[n + 1];
+//            Console.WriteLine("n  = "+n);
             for (int i = 0; i <= n; i++)
             {
-                adj.Add(new List<edge>());
+                adj.Add(new List<Edge>());
                 vis[i] = false;
             }
-            foreach (var edge in edges)
+            foreach (Edge e in Edges)
             {
 
-                adj[edge.node1].Add(edge);
-                adj[edge.node2].Add(edge);
+                adj[e.node1].Add(e);
+                adj[e.node2].Add(e);
             }
             return adj;
         }
@@ -197,11 +233,9 @@ namespace app
             foreach (var neighbor in adj[node])
             {
                 int curNeighbor = neighbor.node1;
-                //float curSum = neighbor.sim1;
                 if (curNeighbor == node)
                 {
                     curNeighbor = neighbor.node2;
-                    //curSum = neighbor.sim2;
                 }
 
                 count += 2;
@@ -219,6 +253,8 @@ namespace app
             List<KeyValuePair<List<int>, float>> groups_avg = new List<KeyValuePair<List<int>, float>>();
             for (int i = 1; i <= n; i++)
             {
+                if (adj[i].Count == 0)
+                    continue;
                 if (vis[i] == false)
                 {
                     float sum = 0;
@@ -231,138 +267,364 @@ namespace app
                 }
             }
 
+            foreach (KeyValuePair<List<int>, float> keyValuePair in groups_avg)
+                keyValuePair.Key.Sort();
+            groups_avg.Sort((x, y) => y.Value.CompareTo(x.Value));
+            int group = 0;
+            foreach (KeyValuePair<List<int>, float> keyValuePair in groups_avg)
+            {
+                foreach (int node in keyValuePair.Key)
+                    group_num[node] = group;
+                group++;
+            }
             return groups_avg;
         }
         #endregion
         #region 3. Apply MST using 2 different algorithms (Kruskal, Prim)
         // Kerollos
-        public static List<edge> MST_Kruskal(List<edge> edges)
+        public static List<Edge> MST_Kruskal(List<Edge> Edges)
         {
-            List<edge> final_edges = new List<edge>();
+            List<Edge> final_Edges = new List<Edge>();
 
-            var sortedEdges = edges.OrderByDescending(x => x.mx_similarity);
+            var sortedEdges = Edges.OrderByDescending(x => x.mx_similarity)
+                       .ThenByDescending(x => x.number_of_lines);
             DSU dsu = new DSU(n + 1);
-            foreach (var edge in sortedEdges)
+            foreach (var Edge in sortedEdges)
             {
-                int node1 = edge.node1, node2 = edge.node2;
+                int node1 = Edge.node1, node2 = Edge.node2;
                 if (dsu.Find(node1) == dsu.Find(node2)) continue;
                 dsu.Union(node1, node2);
-                final_edges.Add(edge);
+                final_Edges.Add(Edge);
             }
-            List<edge>[] group = new List<edge>[n + 1];
-            foreach (var edge in final_edges)
+            List<Edge>[] group = new List<Edge>[n + 1];
+            foreach (var Edge in final_Edges)
             {
-                int p = dsu.Find(edge.node1);
+                int p = dsu.Find(Edge.node1);
                 if (group[p] == null)
-                    group[p] = new List<edge>();
-                group[dsu.Find(edge.node1)].Add(edge);
+                    group[p] = new List<Edge>();
+                group[dsu.Find(Edge.node1)].Add(Edge);
             }
             int j = 0;
             for (int i = 1; i <= n; i++)
             {
                 int p = dsu.Find(i);
                 if (group[p] == null) continue;
-                foreach (var edge in group[p])
+                foreach (var Edge in group[p])
                 {
-                    final_edges[j++] = edge;
+                    final_Edges[j++] = Edge;
                 }
                 group[p] = null;
             }
-            return final_edges;
+            final_Edges.Sort((a, b) => {
+                int res = group_num[a.node1].CompareTo(group_num[b.node1]);
+                if(res==0)
+                    return b.number_of_lines.CompareTo(a.number_of_lines);
+                return res;
+            });
+            return final_Edges;
         }
         // Abanoub
-        public static void Prim_one_group(int start, List<edge> final_edges, List<List<edge>> adj)
+        public static void Prim_one_group(int start, List<Edge> final_Edges, List<List<Edge>> adj)
         {
-            PriorityQueue<edge, float> pq = new PriorityQueue<edge, float>(new InverseComparer());
+            PriorityQueue<bool, Edge> pq = new PriorityQueue<bool,Edge>(new EdgeComparer());
             vis[start] = true;
-            foreach (edge e in adj[start])
-                pq.Enqueue(e, e.mx_similarity);
-            while (pq.TryDequeue(out edge mx_edge, out float priority))
+            foreach (Edge e in adj[start])
+                pq.Enqueue(true, e);
+            List<Edge>final_Edges_of_groups = new List<Edge>();
+            while (pq.TryDequeue(out bool m, out Edge mx_Edge))
             {
-                if (!vis[mx_edge.node1])
-                    start = mx_edge.node1;
-                else if (!vis[mx_edge.node2])
-                    start = mx_edge.node2;
+                if (!vis[mx_Edge.node1])
+                    start = mx_Edge.node1;
+                else if (!vis[mx_Edge.node2])
+                    start = mx_Edge.node2;
                 else continue;
-
                 vis[start] = true;
-                final_edges.Add(mx_edge);
-                foreach (edge e in adj[start])
+                final_Edges_of_groups.Add(mx_Edge);
+                foreach (Edge e in adj[start])
                 {
                     if (!vis[e.node1] | !vis[e.node2])
-                        pq.Enqueue(e, e.mx_similarity);
+                        pq.Enqueue(true, e);
                 }
             }
+            final_Edges_of_groups.Sort((a, b) => b.number_of_lines.CompareTo(a.number_of_lines));
+            foreach (Edge e in final_Edges_of_groups)
+                final_Edges.Add(e);
         }
-        public static List<edge> MST_Prim(List<List<edge>> adj)
+        public static List<Edge> MST_Prim(List<List<Edge>> adj, List<KeyValuePair<List<int>, float>> sorted_groups_by_avg)
         {
-            List<edge> final_edges = new List<edge>();
+            List<Edge> final_Edges = new List<Edge>();
             for (int id = 1; id <= n; id++)
                 vis[id] = false;
-            for (int node = 1; node <= n; node++)
-            {
-                if (!vis[node])
-                    Prim_one_group(node, final_edges, adj);
-            }
-            return final_edges;
+            foreach (KeyValuePair<List<int>, float> keyValuePair in sorted_groups_by_avg)
+                Prim_one_group(keyValuePair.Key[0],final_Edges,adj);
+            return final_Edges;
         }
         #endregion;
-        #region 4. Output groups' statistics & final edges
+        #region 4. Output groups' statistics & final Edges
         // Ali 
-        public static void ouput_groups_statistics_into_excel(List<KeyValuePair<List<int>, float>> groups_avg)
+        public static string print_edges(Edge e, string PATH)
         {
-            // Your code
-            // list<pair<list,float>>
-            groups_avg.Sort((x, y) => y.Value.CompareTo(x.Value));
-            int cur = 0;
-            dc = new Dictionary<int, int>();
-            // Write this output in the excel file in StatFiles format
-            Console.WriteLine(groups_avg.Count);
-            foreach (var group in groups_avg)
+            string s = "";
+            s+=PATH + e.node1 + "/(" + e.sim1 + "%)";
+            s+="     ";
+            s += PATH + e.node2 + "/(" + e.sim2 + "%) ";
+            s += "     ";
+            s += e.number_of_lines;
+            return s;
+        }
+        // Marina
+        public static void output_Edges_of_MST_into_excel(List<Edge> final_Edges)
+        {
+            Console.WriteLine("File 1     File 2     Line Matches");
+            // Write this output in the excel file in mst_files format
+            int line = 0;
+            foreach (Edge e in final_Edges)
             {
-                foreach (var i in group.Key)
+                Console.Write(line++ + "    ");
+                Console.Write(PATH+e.node1+"/("+e.sim1+"%)");
+                Console.Write("     ");
+                Console.Write(PATH + e.node2 + "/(" + e.sim2 + "%) ");
+                Console.Write("     ");
+                Console.WriteLine(e.number_of_lines);
+            }
+        }
+        public static void OutputEdgesOfMSTIntoExcel(List<Edge> finalEdges,
+            string filePath = @"E:\projects\algo\Project\Application\Plagiarism validation\Test Cases\Complete\Easy\Output\mst_file.xlsx")
+        {
+            // Set up EPPlus license context (EPPlus 5+)
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+            // Create a new Excel package
+            using (var package = new ExcelPackage())
+            {
+                // Add a new worksheet
+                var worksheet = package.Workbook.Worksheets.Add("MST");
+
+                // Add header row
+                worksheet.Cells["A1"].Value = "File 1";
+                worksheet.Cells["B1"].Value = "File 2";
+                worksheet.Cells["C1"].Value = "Line Matches";
+
+                // Populate the worksheet with data
+                int rowIndex = 2; // Start from the second row
+                foreach (Edge edge in finalEdges)
                 {
-                    dc.Add(i, cur);
-                    Console.Write(i + " ");
+
+                    string file1 = $@"{PATH}{edge.node1}/({edge.sim1}%)" , file2 = $@"{PATH}{edge.node2}/({edge.sim2}%)";
+                    worksheet.Cells[rowIndex, 1].Value = file1;
+                    worksheet.Cells[rowIndex, 1].Style.Font.UnderLine = true;
+                    worksheet.Cells[rowIndex, 1].Style.Font.Color.SetColor(System.Drawing.Color.Blue);
+                    worksheet.Cells[rowIndex, 2].Value = file2;
+                    worksheet.Cells[rowIndex, 2].Style.Font.UnderLine = true;
+                    worksheet.Cells[rowIndex, 2].Style.Font.Color.SetColor(System.Drawing.Color.Blue);
+
+                    worksheet.Cells[rowIndex, 3].Value = edge.number_of_lines;
+                    rowIndex++;
                 }
-                cur++;
-                Console.WriteLine(group.Value);
+
+                // AutoFit columns for all cells
+                worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+
+                // Save the Excel package to a file
+                FileInfo excelFile = new FileInfo(filePath);
+                package.SaveAs(excelFile);
+            }
+        }
+        public static void OutputGroupsStatisticsIntoExcel(List<KeyValuePair<List<int>, float>> groupsAvg, string filePath= @"E:\projects\algo\Project\Application\Plagiarism validation\Test Cases\Complete\Easy\Output\Stat_file.xlsx")
+        {
+            // Set up EPPlus license context (EPPlus 5+)
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+            // Create a new Excel package
+            using (var package = new ExcelPackage())
+            {
+                // Add a new worksheet
+                var worksheet = package.Workbook.Worksheets.Add("Components");
+
+                // Add header row
+                worksheet.Cells["A1"].Value = "Component Index";
+                worksheet.Cells["B1"].Value = "Vertices";
+                worksheet.Cells["C1"].Value = "Average Similarity";
+                worksheet.Cells["D1"].Value = "Component Count";
+
+                // Populate the worksheet with data
+                int rowIndex = 2; // Start from the second row
+                foreach (var group in groupsAvg)
+                {
+                    worksheet.Cells[rowIndex, 1].Value = rowIndex - 1; // Component Index
+                    worksheet.Cells[rowIndex, 2].Value = string.Join(", ", group.Key); // Vertices
+                    worksheet.Cells[rowIndex, 3].Value = Math.Round(group.Value,1); // Average Similarity
+                    worksheet.Cells[rowIndex, 4].Value = group.Key.Count; // Component Count
+                    rowIndex++;
+                }
+
+                // AutoFit columns for all cells
+                worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+
+                // Save the Excel package to a file
+                FileInfo excelFile = new FileInfo(filePath);
+                package.SaveAs(excelFile);
             }
         }
 
-        // Marina
-        public static void output_edges_of_MST_into_excel(List<edge> final_edges)
+        #endregion;
+        #region TESTS
+        public static bool CompareExcelFiles(string filePath1, string filePath2)
         {
-            // Your Code
-            final_edges.Sort((x, y) => dc[x.node1].CompareTo(dc[y.node1]));
+            // Set up EPPlus license context
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
-            // Write this output in the excel file in mst_files format
-            foreach (var edge in final_edges)
+            // Load the first Excel file
+            using (var package1 = new ExcelPackage(new FileInfo(filePath1)))
+            using (var package2 = new ExcelPackage(new FileInfo(filePath2)))
             {
-                Console.Write(name[edge.node1] + " ");
-                Console.Write(name[edge.node2] + " ");
-                Console.WriteLine(edge.mx_similarity);
+                // Get the first worksheet in each file
+                var worksheet1 = package1.Workbook.Worksheets[0];
+                var worksheet2 = package2.Workbook.Worksheets[0];
+
+                // Check if dimensions are the same
+                if (worksheet1.Dimension.Address != worksheet2.Dimension.Address)
+                {
+                    Console.WriteLine("Worksheets have different dimensions.");
+                    return false;
+                }
+
+                // Compare each cell in the worksheet
+                for (int row = 1; row <= worksheet1.Dimension.End.Row; row++)
+                {
+                    for (int col = 1; col <= worksheet1.Dimension.End.Column; col++)
+                    {
+                        var cell1 = worksheet1.Cells[row, col].Text;
+                        var cell2 = worksheet2.Cells[row, col].Text;
+                        if (cell1 != cell2)
+                        {
+                            Console.WriteLine($"Mismatch at row {row}, column {col}: '{cell1}' vs '{cell2}'");
+                            return false;
+                        }
+                    }
+                }
             }
+            Console.WriteLine("TEST STAT PASSED Successfully");
+            // If no differences are found
+            return true;
+        }
+
+        public static void TEST_Algorithm(int id, List<Edge> Edges, List<Edge> output_edges, string PATH, string PATH_output)
+        {
+            Edges.Sort((a, b) => a.number_of_lines.CompareTo(b.number_of_lines));
+            output_edges.Sort((a, b) => a.number_of_lines.CompareTo(b.number_of_lines));
+            Console.WriteLine("TEST ID: " + id);
+            double sum1 = 0, sum2 = 0;
+
+            for (int i = 0; i < output_edges.Count; i++)
+            {
+                sum1 += Edges[i].mx_similarity;
+                sum2 += output_edges[i].mx_similarity;
+                if (Edges[i].number_of_lines != output_edges[i].number_of_lines)
+                {
+                    string s1 = print_edges(Edges[i], PATH);
+                    string s2 = print_edges(output_edges[i], PATH_output);
+                    Console.WriteLine("Line " + i);
+                    Console.WriteLine("expected: " + s2);
+                    Console.WriteLine("Output: " + s1);
+                    return;
+                }
+            }
+            if(sum1==sum2)
+                Console.WriteLine("TEST PASSED Successfully");
+            else
+                Console.WriteLine("TEST Faild");
         }
         #endregion;
+
         static void Main(string[] args)
         {
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-            edges = read_from_excel_and_build_edges();
-            adj = Build_Graph(edges);
+            int level;
+            do
+            {
+                Console.WriteLine("Enter test level (1/Easy 2/Medium 3/Hard):");
+                level = int.Parse(Console.ReadLine());
+                if (level < 1 || level > 3)
+                {
+                    Console.WriteLine("Invalid input:");
+                    break;
+                }
+                Console.WriteLine("Enter test number 1/2:");
+                int test = int.Parse(Console.ReadLine());
+                if (test < 1 || test > 2)
+                {
+                    Console.WriteLine("Invalid input:");
+                }
+                else
+                {
+                    Console.WriteLine("Choose Algorithm (1/Prim 2/Kruskal 3/both):");
+                    int algo = int.Parse(Console.ReadLine());
+                    string chosen_path_in = @"E:\projects\algo\Project\Application\Plagiarism validation\Test Cases\Complete\";
+                    string chosen_path_out = @"E:\projects\algo\Project\Application\Plagiarism validation\Output\";
 
-            List<KeyValuePair<List<int>, float>> groups_avg = calculate_avg_for_each_group();
-            ouput_groups_statistics_into_excel(groups_avg);
-            Console.WriteLine();
-            Console.WriteLine();
+                    if (level == 1)
+                    {
+                        chosen_path_in += "Easy\\";
+                        chosen_path_out += "Easy\\";
+                    }
+                    else if (level == 2)
+                    {
+                        chosen_path_in += "Medium\\";
+                        chosen_path_out += "Medium\\";
 
-            List<edge> prim_edges = MST_Prim(adj);
-            output_edges_of_MST_into_excel(prim_edges);
-            Console.WriteLine();
-            Console.WriteLine();
+                    }
+                    else
+                    {
+                        chosen_path_in += "Hard\\";
+                        chosen_path_out += "Hard\\";
 
-            List<edge> kruskal_edges = MST_Kruskal(edges);
-            output_edges_of_MST_into_excel(kruskal_edges);
+                    }
+                    string chosen_path_expected_edges, chosen_path_expected_stat;
+                    string chosen_path_output_edges, chosen_path_output_stat;
+                    chosen_path_expected_edges = chosen_path_expected_stat = chosen_path_in;
+                    chosen_path_output_edges = chosen_path_output_stat = chosen_path_out;
+                    chosen_path_in += test+"-Input.xlsx";
+                    chosen_path_expected_edges += test + "-mst_file.xlsx";
+                    chosen_path_expected_stat += test + "-StatFile.xlsx";
+                    chosen_path_output_edges += test + "-StatFile";
+                    chosen_path_output_stat += test + "-StatFile.xlsx";
+                    var watch = Stopwatch.StartNew();
+                    Edges = read_from_excel_and_build_Edges(ref n, ref PATH, chosen_path_in);
+                    adj = Build_Graph(Edges);
+                    List<KeyValuePair<List<int>, float>> groups_avg = calculate_avg_for_each_group();
+                    List<Edge> prim_Edges=null, kruskal_Edges=null;
+                    if (algo == 1)
+                    {
+                        prim_Edges = MST_Prim(adj, groups_avg);
+                        OutputEdgesOfMSTIntoExcel(prim_Edges, chosen_path_output_edges + "_prim.xlsx");
+                    }
+                    else if (algo == 2)
+                    {
+                        kruskal_Edges = MST_Kruskal(Edges);
+                        OutputEdgesOfMSTIntoExcel(kruskal_Edges, chosen_path_output_edges + "_kruskal.xlsx");
+                    }
+                    else
+                    {
+                        prim_Edges = MST_Prim(adj, groups_avg);
+                        kruskal_Edges = MST_Kruskal(Edges);
+                        OutputEdgesOfMSTIntoExcel(kruskal_Edges, chosen_path_output_edges + "_kruskal.xlsx");
+                        OutputEdgesOfMSTIntoExcel(prim_Edges, chosen_path_output_edges + "_prim.xlsx");
+                    }
+                    OutputGroupsStatisticsIntoExcel(groups_avg, chosen_path_output_stat);
+                    watch.Stop();
+                    long elapsedMs = watch.ElapsedMilliseconds;
+                    Console.WriteLine($"Execution time: {elapsedMs} ms");
+                    string format_path_output = "";
+                    List<Edge> output_edges = read_from_excel_and_build_Edges(ref n, ref format_path_output, chosen_path_expected_edges);
+
+                    // compare here
+                    if(algo!=2)
+                        TEST_Algorithm(1, prim_Edges, output_edges, PATH, format_path_output);
+                    if (algo != 1)
+                        TEST_Algorithm(2, kruskal_Edges, output_edges, PATH, format_path_output);
+/*                    CompareExcelFiles(chosen_path_output_stat, chosen_path_expected_stat);
+*/                }
+            }while (level>0);
         }
     }
 }
